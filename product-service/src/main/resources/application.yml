@@ -1,0 +1,36 @@
+server:  
+  port: ${PORT:9114}
+
+spring:  
+  application:
+    name: product-service
+  data:
+    mongodb: 
+      #uri: mongodb://mongodb:27017/elk-app-dev 
+      host: localhost
+      port: 27017
+      database: elk-app-dev
+      #username: micro 
+      #password: micro
+      
+eureka:  
+  client:
+    serviceUrl:
+      defaultZone: ${DISCOVERY_URL:http://localhost:8761}/eureka/ 
+    register-with-eureka: true 
+  instance:
+    leaseRenewalIntervalInSeconds: 1
+    leaseExpirationDurationInSeconds: 2
+      
+ribbon:
+  eureka:
+    enabled: true
+    
+        
+feign:
+  hystrix:
+    enabled: true
+       
+hystrix:
+  dashboard:
+    proxy-stream-allow-list: '*'        

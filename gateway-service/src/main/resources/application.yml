@@ -1,0 +1,40 @@
+server:  
+  port: ${PORT:9111}
+  
+spring:
+  application:
+    name: gateway-service
+
+endpoints:
+  restart:
+    enabled: true
+  shutdown:
+    enabled: true
+  health:
+    sensitive: false
+
+zuul:
+  prefix: /api
+  routes:
+    account-service: 
+      path: /account/**
+      serviceId: ACCOUNT-SERVICE
+    customer-service: 
+      path: /customer/**
+      serviceId: CUSTOMER-SERVICE
+    product-service: 
+      path: /product/**
+      serviceId: PRODUCT-SERVICE
+    transfer-service: 
+      path: /transfer/**
+      serviceId: TRANSFER-SERVICE
+
+ribbon:
+  eureka:
+    enabled: true
+
+eureka:
+  client:
+    serviceUrl:
+      defaultZone: http://localhost:8761/eureka/
+    registerWithEureka: true

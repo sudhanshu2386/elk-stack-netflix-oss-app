@@ -1,0 +1,39 @@
+filebeat.config:
+  modules:
+    path: ${path.config}/modules.d/*.yml
+    reload.enabled: false
+
+filebeat.inputs:
+- type: log
+  paths:
+    - C:\eclipse-workspace\elk-stack-app\elk-stack-parent\discovery-service\logs\* 
+    - C:\eclipse-workspace\elk-stack-app\elk-stack-parent\gateway-service\logs\* 
+    - C:\eclipse-workspace\elk-stack-app\elk-stack-parent\account-service\logs\* 
+    - C:\eclipse-workspace\elk-stack-app\elk-stack-parent\customer-service\logs\* 
+    - C:\eclipse-workspace\elk-stack-app\elk-stack-parent\product-service\logs\* 
+    - C:\eclipse-workspace\elk-stack-app\elk-stack-parent\transfer-service\logs\* 
+  fields_under_root: true
+
+  
+processors:
+- add_cloud_metadata: ~
+- add_docker_metadata: ~
+
+
+output.logstash:
+  hosts: ['${LOGSTASH_HOSTS:logstash:5044}']
+  #username: '${ELASTICSEARCH_USERNAME:}'
+  #password: '${ELASTICSEARCH_PASSWORD:}'
+
+
+setup.kibana:
+  host: "${KIBANA_HOSTS:kibana:5601}"
+  #username: '${ELASTICSEARCH_USERNAME:}'
+  #password: '${ELASTICSEARCH_PASSWORD:}'
+setup.dashboards.enabled: true
+setup.dashboards.retry.enabled: true
+setup.dashboards.retry.interval: 5s
+
+logging.metrics.enabled: false
+
+logging.level: debug

@@ -1,0 +1,183 @@
+version: "3.5"
+services:
+
+  MongoDB:
+    image: mongo:4.2
+    container_name: "mongodb"
+    volumes:
+      - /home/mongo/data/db:/data/db
+    ports:
+      - "27017:27017" 
+    labels:
+      #collect_logs_with_filebeat: "true"
+      decode_log_event_to_json_object: "true" 
+    restart: on-failure
+    
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.2.0
+    container_name: "elasticsearch"
+    environment:
+      - cluster.name=microservice-monitoring
+      - bootstrap.memory_lock=true
+      - "ES_JAVA_OPTS=-Xms4096m -Xmx4096m"
+      - discovery.type=single-node
+      - cluster.routing.allocation.disk.threshold_enabled=false
+      #- ELASTIC_PASSWORD=$ELASTIC_PASSWORD
+      #- xpack.security.enabled=$ELASTIC_SECURITY
+      - xpack.monitoring.collection.enabled=true
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    ports:
+      - "9200:9200"
+    environment:
+      - "discovery.type=single-node"
+    volumes:
+      - ./elasticsearch/data:/usr/share/elasticsearch/data:rw              # Persistence data
+    restart: on-failure
+          
+  
+  logstash:
+    image: docker.elastic.co/logstash/logstash:7.2.0
+    container_name: "logstash"
+    ports:
+      - "25826:25826"
+      - "5044:5044"
+    volumes:
+      - ./logstash/pipeline:/usr/share/logstash/pipeline:ro                # Pipeline configuration
+    restart: on-failure
+    depends_on:
+      - elasticsearch
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:7.2.0
+    container_name: "kibana"
+    volumes:
+      - ./scripts:/mnt/scripts:ro
+    ports:
+      - "5601:5601"
+    restart: on-failure
+    depends_on:
+      - elasticsearch
+  
+  #filebeat:
+  #  image: docker.elastic.co/beats/filebeat:7.2.0
+  #  container_name: "filebeat"
+  #  user: root
+  #  volumes:
+  #    - ./scripts:/mnt/scripts:ro
+  #    - /var/run/docker.sock:/var/run/docker.sock:ro
+  #    - /var/log:/mnt/log:ro
+  #    - discovery-service-log:/mnt/discovery-service-log:ro
+  #    - account-service-log:/mnt/account-service-log:ro
+  #    - customer-service-log:/mnt/customer-service-log:ro
+  #    - gateway-service-log:/mnt/gateway-service-log:ro
+     # Provide a custom Filebeat configuration
+  #    - ./filebeat/filebeat.yml:/usr/share/filebeat/filebeat.yml                                                     
+  #  restart: on-failure
+  #  depends_on:
+  #    - logstash
+      
+  filebeat:
+    image: docker.elastic.co/beats/filebeat:7.2.0
+    container_name: "filebeat"
+    volumes:
+      - ./filebeat/filebeat.docker.yml:/usr/share/filebeat/filebeat.yml:ro # Configuration file
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro           # Docker logs
+      - /var/run/docker.sock:/var/run/docker.sock:ro                       # Additional information about containers
+      - ./filebeat/data:/usr/share/filebeat/data:rw                        # Persistence data
+    user: root                                                             # Allow access to log files and docker.sock
+    restart: on-failure
+    depends_on:
+      - logstash
+  
+  
+  
+  discovery-service:
+    image: ibm/discovery-service:latest
+    container_name: "discovery-service"
+    #volumes:
+    #  - discovery-service-log:/var/logs
+    ports:
+      - "8761:8761"
+    labels:
+      collect_logs_with_filebeat: "true"
+      decode_log_event_to_json_object: "true" 
+    
+  
+  account-service:
+    image: ibm/account-service:latest
+    container_name: "account-service"
+    #volumes:
+    #  - account-service-log:/var/logs
+    ports:
+      - "9112:9112"
+    labels:
+      collect_logs_with_filebeat: "true"
+      decode_log_event_to_json_object: "true" 
+    depends_on:
+      - "discovery-service"
+      - "MongoDB" 
+    links:
+      - "MongoDB" 
+      - "discovery-service" 
+    environment:
+      #SPRING_DATA_MONGODB_URI:  mongodb://mongodb:27017/elk-app-dev
+      EUREKA_INSTANCE_PREFER_IP_ADDRESS: "true"
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-service:8761/eureka/
+      
+      
+  customer-service:
+    image: ibm/customer-service:latest
+    container_name: "customer-service"
+    #volumes:
+    #  - customer-service-log:/var/logs
+    ports:
+      - "9113:9113"
+    labels:
+      collect_logs_with_filebeat: "true"
+      decode_log_event_to_json_object: "true" 
+    depends_on:
+      - "discovery-service"
+      - "MongoDB" 
+    links:
+      - "MongoDB"
+      - "discovery-service" 
+      - "account-service" 
+       
+    environment:
+      #SPRING_DATA_MONGODB_URI:  mongodb://mongodb:27017/elk-app-dev
+      EUREKA_INSTANCE_PREFER_IP_ADDRESS: "true"
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-service:8761/eureka/
+      
+ 
+  gateway-service:
+    image: ibm/gateway-service:latest
+    container_name: "gateway-service"
+    #volumes:
+    #  - gateway-service-log:/var/logs
+    ports:
+      - "9111:9111"
+    labels:
+      collect_logs_with_filebeat: "true"
+      decode_log_event_to_json_object: "true" 
+    depends_on:
+      - "discovery-service" 
+      - "account-service" 
+    links:
+      - "discovery-service" 
+      - "account-service"
+      - "customer-service" 
+      #- "product-service" 
+      #- "transfer-service"
+    environment:
+      EUREKA_INSTANCE_PREFER_IP_ADDRESS: "true"
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-service:8761/eureka/
+      
+#volumes:
+#    discovery-service-log: {}
+#    account-service-log: {}
+#    customer-service-log: {}
+#    gateway-service-log: {}
+    
